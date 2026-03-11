@@ -25,17 +25,21 @@ client.once("ready", () => {
 });
 
 
-// Sunucuya biri girince
+// ROL IDLERİ
+const kayitRolID = "1253313874342711337"; // LÜTFEN KAYIT OLUNUZ
+const haramilerRolID = "1253327741063794771"; // Haramiler
+
+
+// Sunucuya girince mesaj
 client.on("guildMemberAdd", member => {
 
   const kanal = member.guild.systemChannel;
-
   if (!kanal) return;
 
   kanal.send(
 `Hoş geldin ${member}
 
-Kayıt olmak için:
+Kayıt olmak için şu komutu kullan:
 
 !kayıt isim nickname yaş
 
@@ -50,8 +54,12 @@ Kayıt olmak için:
 client.on("messageCreate", async message => {
 
   if (message.author.bot) return;
-
   if (!message.content.startsWith("!kayıt")) return;
+
+  // sadece kayıt rolü olanlar kullanabilir
+  if (!message.member.roles.cache.has(kayitRolID)) {
+    return message.reply("Kayıt rolüne sahip değilsin.");
+  }
 
   const args = message.content.split(" ");
 
@@ -72,11 +80,16 @@ client.on("messageCreate", async message => {
 
     await message.member.setNickname(yeniNick);
 
-    message.reply(`Kayıt tamamlandı.\nYeni adın: ${yeniNick}`);
+    await message.member.roles.remove(kayitRolID);
+    await message.member.roles.add(haramilerRolID);
 
-  } catch {
+    message.reply(`✅ Kayıt tamamlandı.
 
-    message.reply("Nick değiştirme yetkim yok.");
+Yeni adın: ${yeniNick}`);
+
+  } catch (err) {
+
+    message.reply("Nick veya rol değiştirme yetkim yok.");
 
   }
 
