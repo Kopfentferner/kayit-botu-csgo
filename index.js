@@ -1,11 +1,20 @@
-const { Client, GatewayIntentBits } = require("discord.js");
+const { 
+  Client, 
+  GatewayIntentBits, 
+  ActionRowBuilder, 
+  ButtonBuilder, 
+  ButtonStyle,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  Events
+} = require("discord.js");
+
 const express = require("express");
 
 const app = express();
-// Render'ın dinamik portunu kullan, yoksa yerelde 3000 portunu aç
 const port = process.env.PORT || 3000;
 
-// Uptime Robot'un ping atması için gereken ana sayfa
 app.get("/", (req, res) => {
   res.send("Bot 7/24 Aktif!");
 });
@@ -14,81 +23,132 @@ app.listen(port, () => {
   console.log(`Web server ${port} portunda aktif.`);
 });
 
-// Bot ayarları ve Intentler (Hassas izinler dahil)
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent, // Mesajları okumak için (Panelden açılmalı)
-    GatewayIntentBits.GuildMembers    // Üye katılımını görmek için (Panelden açılmalı)
+    GatewayIntentBits.GuildMembers
   ]
 });
 
-// Bot hazır olduğunda çalışır
 client.once("ready", () => {
   console.log(`${client.user.tag} olarak giriş yapıldı!`);
 });
 
-// ROL IDLERİ (Senin verdiğin ID'ler)
-const kayitRolID = "1253313874342711337"; // LÜTFEN KAYIT OLUNUZ
-const haramilerRolID = "1253327741063794771"; // Haramiler
+// IDLER
+const kayitRolID = "1253313874342711337";
+const haramilerRolID = "1253327741063794771";
+const kayitKanalID = "1253302712431284306";
+const hosgeldinKanalID = "1253308165790109788";
+const logKanalID = "1466030876709359680";
 
-// Sunucuya yeni birisi girince
+// SUNUCUYA GİRİNCE
 client.on("guildMemberAdd", async (member) => {
-  const kanal = member.guild.systemChannel;
-  if (!kanal) return;
 
-  try {
-    await kanal.send(
-      `Hoş geldin ${member}\n\nKayıt olmak için şu komutu kullan:\n\n!kayıt isim nickname yaş\n\nÖrnek:\n!kayıt semih cahsenmay 18`
+  const hosgeldin = member.guild.channels.cache.get(hosgeldinKanalID);
+  const kayitKanal = member.guild.channels.cache.get(kayitKanalID);
+
+  // 🔥 HOŞ GELDİN MESAJI
+  if (hosgeldin) {
+    hosgeldin.send(`🎉 **Sunucumuza hoş geldin ${member}!**
+
+🔹 Kırk Haramiler ailesine katıldın!
+🔹 Kayıt olmak için aşağıdaki butona tıkla
+
+🎮 İyi eğlenceler dileriz!`);
+  }
+
+  // 🔘 BUTON
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("kayit_baslat")
+      .setLabel("Kayıt Ol")
+      .setStyle(ButtonStyle.Success)
+  );
+
+  if (kayitKanal) {
+    kayitKanal.send({
+      content: `👋 ${member} kayıt olmak için butona bas!`,
+      components: [row]
+    });
+  }
+});
+
+// BUTONA BASILINCA
+client.on(Events.InteractionCreate, async (interaction) => {
+
+  if (interaction.isButton() && interaction.customId === "kayit_baslat") {
+
+    const modal = new ModalBuilder()
+      .setCustomId("kayit_modal")
+      .setTitle("Kayıt Formu");
+
+    const isimInput = new TextInputBuilder()
+      .setCustomId("isim")
+      .setLabel("İsim")
+      .setStyle(TextInputStyle.Short);
+
+    const nickInput = new TextInputBuilder()
+      .setCustomId("nick")
+      .setLabel("Nickname")
+      .setStyle(TextInputStyle.Short);
+
+    const yasInput = new TextInputBuilder()
+      .setCustomId("yas")
+      .setLabel("Yaş")
+      .setStyle(TextInputStyle.Short);
+
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(isimInput),
+      new ActionRowBuilder().addComponents(nickInput),
+      new ActionRowBuilder().addComponents(yasInput)
     );
-  } catch (err) {
-    console.error("Hoş geldin mesajı gönderilemedi:", err);
+
+    await interaction.showModal(modal);
+  }
+
+  // MODAL SUBMIT
+  if (interaction.isModalSubmit() && interaction.customId === "kayit_modal") {
+
+    let isim = interaction.fields.getTextInputValue("isim");
+    let nick = interaction.fields.getTextInputValue("nick");
+    let yas = interaction.fields.getTextInputValue("yas");
+
+    isim = isim.charAt(0).toUpperCase() + isim.slice(1);
+    nick = nick.charAt(0).toUpperCase() + nick.slice(1);
+
+    const yeniNick = `${isim} | ${nick} #${yas}`;
+
+    try {
+      // Nick değiştir
+      await interaction.member.setNickname(yeniNick);
+
+      // Rol işlemleri
+      await interaction.member.roles.remove(kayitRolID).catch(() => {});
+      await interaction.member.roles.add(haramilerRolID);
+
+      await interaction.reply({
+        content: `✅ Kayıt tamamlandı!\nYeni adın: **${yeniNick}**`,
+        ephemeral: true
+      });
+
+      // LOG
+      const logKanal = interaction.guild.channels.cache.get(logKanalID);
+      if (logKanal) {
+        logKanal.send(`📥 **Yeni Kayıt**
+👤 Kullanıcı: ${interaction.user}
+📝 İsim: ${isim}
+🎮 Nick: ${nick}
+🎂 Yaş: ${yas}`);
+      }
+
+    } catch (err) {
+      console.error(err);
+      interaction.reply({
+        content: "❌ Hata oluştu! Bot yetkilerini kontrol et.",
+        ephemeral: true
+      });
+    }
   }
 });
 
-// Kayıt komutu işleyicisi
-client.on("messageCreate", async (message) => {
-  // Bot mesajlarını ve !kayıt ile başlamayanları görmezden gel
-  if (message.author.bot || !message.content.startsWith("!kayıt")) return;
-
-  // Sadece kayıt rolü olanlar kullanabilir
-  if (!message.member.roles.cache.has(kayitRolID)) {
-    return message.reply("Zaten kayıtlısın veya kayıt rolüne sahip değilsin.");
-  }
-
-  const args = message.content.split(" ");
-
-  // Argüman kontrolü (!kayıt + isim + nick + yaş = 4 parça)
-  if (args.length < 4) {
-    return message.reply("⚠️ Doğru kullanım: `!kayıt isim nickname yaş` \nÖrnek: `!kayıt semih cahsenmay 18` ");
-  }
-
-  let isim = args[1];
-  let nickname = args[2];
-  let yas = args[3];
-
-  // İlk harfleri büyük yapma
-  isim = isim.charAt(0).toUpperCase() + isim.slice(1);
-  nickname = nickname.charAt(0).toUpperCase() + nickname.slice(1);
-
-  const yeniNick = `${isim} | ${nickname} #${yas}`;
-
-  try {
-    // 1. Nickname değiştir
-    await message.member.setNickname(yeniNick);
-
-    // 2. Eski rolü al, yeni rolü ver
-    await message.member.roles.remove(kayitRolID);
-    await message.member.roles.add(haramilerRolID);
-
-    message.reply(`✅ Kayıt tamamlandı.\n\nHoş geldin, yeni adın: **${yeniNick}**`);
-
-  } catch (err) {
-    console.error(err);
-    message.reply("❌ Bir hata oluştu! Yetkimin senin rolünden daha üstte olduğundan emin ol.");
-  }
-});
-
-// Render'daki Environment Variables kısmına 'TOKEN' adıyla eklemeyi unutma
 client.login(process.env.TOKEN);
