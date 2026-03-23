@@ -41,35 +41,23 @@ const kayitKanalID = "1253302712431284306";
 const hosgeldinKanalID = "1253308165790109788";
 const logKanalID = "1466030876709359680";
 
-// 🔥 DUPLICATE ENGELLEME
-const processedMembers = new Set();
-
+// SUNUCUYA GİRİNCE
 client.on("guildMemberAdd", async (member) => {
-
-  // Eğer zaten işlendi ise tekrar yapma
-  if (processedMembers.has(member.id)) return;
-
-  processedMembers.add(member.id);
-
-  // 10 saniye sonra listeden sil (hafıza dolmasın)
-  setTimeout(() => {
-    processedMembers.delete(member.id);
-  }, 10000);
 
   const hosgeldin = member.guild.channels.cache.get(hosgeldinKanalID);
   const kayitKanal = member.guild.channels.cache.get(kayitKanalID);
 
-  // HOŞ GELDİN
+  // 🔥 HOŞ GELDİN MESAJI
   if (hosgeldin) {
     hosgeldin.send(`🎉 **Sunucumuza hoş geldin ${member}!**
 
 🔹 Kırk Haramiler ailesine katıldın!
 🔹 Kayıt olmak için aşağıdaki butona tıkla
 
-🎮 İyi eğlenceler!`);
+🎮 İyi eğlenceler dileriz!`);
   }
 
-  // BUTON
+  // 🔘 BUTON
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId("kayit_baslat")
@@ -85,7 +73,7 @@ client.on("guildMemberAdd", async (member) => {
   }
 });
 
-// BUTON & MODAL
+// BUTONA BASILINCA
 client.on(Events.InteractionCreate, async (interaction) => {
 
   if (interaction.isButton() && interaction.customId === "kayit_baslat") {
@@ -118,6 +106,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     await interaction.showModal(modal);
   }
 
+  // MODAL SUBMIT
   if (interaction.isModalSubmit() && interaction.customId === "kayit_modal") {
 
     let isim = interaction.fields.getTextInputValue("isim");
@@ -130,8 +119,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const yeniNick = `${isim} | ${nick} #${yas}`;
 
     try {
+      // Nick değiştir
       await interaction.member.setNickname(yeniNick);
 
+      // Rol işlemleri
       await interaction.member.roles.remove(kayitRolID).catch(() => {});
       await interaction.member.roles.add(haramilerRolID);
 
@@ -140,6 +131,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         ephemeral: true
       });
 
+      // LOG
       const logKanal = interaction.guild.channels.cache.get(logKanalID);
       if (logKanal) {
         logKanal.send(`📥 **Yeni Kayıt**
@@ -152,7 +144,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     } catch (err) {
       console.error(err);
       interaction.reply({
-        content: "❌ Hata oluştu! Yetkileri kontrol et.",
+        content: "❌ Hata oluştu! Bot yetkilerini kontrol et.",
         ephemeral: true
       });
     }
